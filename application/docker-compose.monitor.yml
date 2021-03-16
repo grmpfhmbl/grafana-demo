@@ -1,0 +1,75 @@
+version: '3.6'
+services:
+  postgis:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=postgis,application=demo-app,environment=production
+
+  qgisserver:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=qgisserver,application=demo-app,environment=production
+        loki-pipeline-stages: |
+          - regex:
+              expression: '^(?P<response_time>\d+)\s(?P<request_id>\S+)\s(?P<req_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s(?P<remote_hostname>\S+)\s(?P<remote_logname>\S+)\s((?P<remote_user>\S+?)\s)?(?P<timestamp>\[.+?\])\s"(?P<request_line>.+?)"\s(?P<http_status>\d+)\s(?P<bytes_sent>\d+)\s"(?P<referrer>.+?)"\s"(?P<user_agent>.+?)"'
+          - labels:
+              http_status:
+          - match:
+              selector: '{request_line=~".*"}'
+              stages:
+                - regex:
+                    expression: '(?i)^(?P<http_action>\w+?)\s.+SERVICE=(?P<ows_service>\w+?)&.*REQUEST=(?P<ows_request>\w+?)[&\s]'
+                    source: 'request_line'
+                - labels:
+                    http_action:
+                    ows_service:
+                    ows_request:
+          - match:
+              selector: '{http_status=~".+"}'
+              stages:
+                - match:
+                    selector: '{http_status=~"^[123].+"}'
+                    stages:
+                      - template:
+                          source: http_status
+                          template: 'info'
+                      - labels:
+                          level: http_status
+                - match:
+                    selector: '{http_status=~"^4.+"}'
+                    stages:
+                      - template:
+                          source: http_status
+                          template: 'warning'
+                      - labels:
+                          level: http_status
+                - match:
+                    selector: '{http_status=~"^5.+"}'
+                    stages:
+                      - template:
+                          source: http_status
+                          template: 'error'
+                      - labels:
+                          level: http_status
+                - template:
+                    source: http_status
+                    template: "qgisserver-apache"
+                - labels:
+                    job: http_status
+  gdal:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=gdal,application=demo-app,environment=production
+
+  nginx:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=nginx,application=demo-app,environment=production

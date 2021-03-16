@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgis:
+    profiles: ["prod", "dev"]
+    image: postgis/postgis:12-3.0-alpine
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=password
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - './tmp/pgdata:/var/lib/postgresql/data/'
+
+  qgisserver:
+    profiles: ["prod", "dev"]
+    image: camptocamp/qgis-server:3.16
+    ports:
+      - 8081:80
+    environment:
+      - QGIS_SERVER_LOG_LEVEL=0
+      - PGSERVICEFILE=/etc/qgisserver/pg_service.conf
+      - QGIS_PROJECT_FILE=/etc/qgisserver/project.qgs
+    volumes:
+      - './qgisserver/pg_service.conf:/etc/qgisserver/pg_service.conf:ro'
+      - './qgisserver/project.qgs:/etc/qgisserver/project.qgs:ro'
+
+  gdal:
+    profiles: ["prod", "dev"]
+    image: osgeo/gdal:ubuntu-small-latest
+    tty: true
+    stdin_open: true
+    volumes:
+      - './data:/var/host_data'
+      - './qgisserver/pg_service.conf:/root/.pg_service.conf:ro'
+
+  node:
+    profiles: ["dev"]
+    build:
+      dockerfile: Dockerfile
+      context: ./website
+      target: ng-cli-dev
+      args:
+        APPNAME: ${APPNAME}
+        NG_CLI_VERSION: ${NG_CLI_VERSION}
+    ports:
+      - 4200:4200
+    volumes:
+      - "./website/app:/home/node/app"
+    tty: true
+    stdin_open: true
+
+  nginx:
+    profiles: ["prod"]
+    build:
+      dockerfile: Dockerfile
+      context: ./website
+      args:
+        APPNAME: ${APPNAME}
+        NG_CLI_VERSION: ${NG_CLI_VERSION}
+    ports:
+      - 8080:80

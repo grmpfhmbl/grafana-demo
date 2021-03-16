@@ -1,0 +1,11 @@
+<mat-toolbar color="primary">
+  <span>{{title}}</span>
+
+  <span class="tool-input">
+    <mat-label>Auto map movement
+    <mat-slider (change)="matSliderChanges($event)" [(value)]="timeout" max="15" min=0 step="1" thumbLabel="true"></mat-slider>
+    </mat-label>
+  </span>
+
+</mat-toolbar>
+<app-ol-map [center]="center" [zoom]="zoom"></app-ol-map>
