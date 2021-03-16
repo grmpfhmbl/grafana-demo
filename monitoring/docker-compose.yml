@@ -1,0 +1,41 @@
+version: '3.6'
+
+services:
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    volumes:
+      - "./tmp/grafana/:/var/lib/grafana"
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - "./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml"
+
+  loki:
+    image: grafana/loki
+    volumes:
+      - "./loki/loki.yml:/etc/config/loki.yml"
+    entrypoint:
+      - /usr/bin/loki
+      - -config.file=/etc/config/loki.yml
+    ports:
+      - 3100:3100
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION}
+    privileged: true
+    ports:
+      - 3180:8080
+    volumes:
+      - '/:/rootfs:ro'
+      - '/var/run:/var/run:ro'
+      - '/var/run/docker.sock.raw:/var/run/docker.sock:ro' #only for macos! https://github.com/docker/for-mac/issues/4755#issuecomment-726351209
+      - '/sys:/sys:ro'
+      - '/var/lib/docker/:/var/lib/docker:ro'
+      - '/dev/disk/:/dev/disk:ro'
+#    devices:
+#      - '/dev/kmsg'
